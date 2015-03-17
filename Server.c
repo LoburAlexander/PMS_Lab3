@@ -3,20 +3,100 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <errno.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #define PORT 5000
 #define BUFFER_SIZE 256
 #define MAX_FILENAME_SIZE 256
+#define MAX_THREAD_COUNT 5
+//#define THREAD
 
-
-int main(int argc, char* argv[])
+void* sendFile(void* param)
 {
 	char filename[MAX_FILENAME_SIZE];
 	unsigned char buffer[BUFFER_SIZE] = { 0 };
-	int socketId = 0, clientId = 0, bytesSend = 0, bytesRead = 0;
-	struct sockaddr_in serverSocket;
 	FILE *file;
-	
+	int bytesRead = 0, bytesSend = 0;
+	int clientId = (int)param;
+
+
+	bytesRead = read(clientId, filename, sizeof(filename)-1);
+	if (bytesRead < 0)
+	{
+		printf("Error reading filename.\n");
+		close(clientId);
+		return 1;
+	}
+
+	/* Open the file to transfer */
+	filename[bytesRead] = 0;
+	if (access(filename, F_OK) == -1)
+	{
+		printf("File not found.\n");
+		close(clientId);
+		return 1;
+	}
+
+	file = fopen(filename, "rb");
+	if (file == NULL)
+	{
+		printf("File open error.\n");
+		close(clientId);
+		return 1;
+	}
+
+	/* Read file and send it */
+	for (;;)
+	{
+		bytesRead = fread(buffer, 1, BUFFER_SIZE, file);
+
+		/* If read was success, send data. */
+		if (bytesRead > 0)
+		{
+			bytesSend = write(clientId, buffer, bytesRead);
+
+			if (bytesSend < bytesRead)
+			{
+				printf("Error sending file.\n");
+				fclose(file);
+				close(clientId);
+				return 1;
+			}
+
+			printf("Bytes send: %d\n", bytesSend);
+		}
+
+		if (bytesRead < BUFFER_SIZE)
+		{
+			if (feof(file))
+				printf("File send.\n");
+			if (ferror(file))
+				printf("Error reading from file.\n");
+			break;
+		}
+	}
+
+	fclose(file);
+	close(clientId);
+	return 0;
+}
+
+int main(int argc, char* argv[])
+{
+	int socketId = 0, clientId = 0;
+	struct sockaddr_in serverSocket;
+
+#ifdef THREAD
+	pthread_t threads[MAX_THREAD_COUNT] = { NULL };
+	int error = 0;
+	int i = 0;
+#else
+	pid_t procId;
+#endif
+
+
 	if ((socketId = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
 		printf("Error : Could not create socket.\n");
@@ -50,52 +130,41 @@ int main(int argc, char* argv[])
 		{
 			printf("Error : Accept client failed.\n");
 			continue;
-			//return 1;
 		}
 
-		bytesRead = read(clientId, filename, sizeof(filename) - 1);
-		if (bytesRead < 0)
+#ifdef THREAD
+
+		for (i = 0; i < MAX_THREAD_COUNT; i++)
+		if ((threads[i] == NULL) || (pthread_kill(threads[i], 0) != ESRCH))
+			break;
+
+		if (i >= MAX_THREAD_COUNT)
 		{
-			printf("Error reading filename.\n");
+			printf("Error : There's no free threads.\n");
 			continue;
 		}
 
-		/* Open the file to transfer */
-		filename[bytesRead] = 0;
-		file = fopen(filename, "rb");
-		if (file == NULL)
+		error = pthread_create(&threads[i], NULL, sendFile, (void*)clientId);
+		if (error)
 		{
-			printf("File open error.\n");
-			return 1;
+			printf("Error : Thread create failed.\n");
+			continue;
 		}
 
-		/* Read file and send it */
-		for (;;)
+#else
+		switch (procId = fork())
 		{
-			bytesRead = fread(buffer, 1, BUFFER_SIZE, file);
-			printf("Bytes read: %d\n", bytesRead);
-
-			/* If read was success, send data. */
-			if (bytesRead > 0)
-			{
-				printf("Sending \n");
-				bytesSend = write(clientId, buffer, bytesRead); //clientId?
-
-				if (bytesSend < bytesRead)
-					printf("Error sending file.\n");
-			}
-
-			if (bytesRead < BUFFER_SIZE)
-			{
-				if (feof(file))
-					printf("File send.\n");
-				if (ferror(file))
-					printf("Error reading from file.\n");
-				break;
-			}
+		case -1:
+			printf("Error : Process create failed.\n");
+			break;
+		case 0:
+			sendFile((void*)clientId);
+			return 0;
+		default:
+			break;
 		}
-		close(clientId); // clientId?
-		sleep(1);
+
+#endif
 	}
 
 	return 0;
