@@ -20,7 +20,7 @@ void* sendFile(void* param)
 	FILE *file;
 	int bytesRead = 0, bytesSend = 0;
 	int clientId = (int)param;
-
+	
 
 	bytesRead = read(clientId, filename, sizeof(filename)-1);
 	if (bytesRead < 0)
@@ -32,7 +32,7 @@ void* sendFile(void* param)
 
 	/* Open the file to transfer */
 	filename[bytesRead] = 0;
-	if (access(filename, F_OK) == -1)
+	if (access(filename, F_OK) == -1) 
 	{
 		printf("File not found.\n");
 		close(clientId);
@@ -64,7 +64,7 @@ void* sendFile(void* param)
 				close(clientId);
 				return 1;
 			}
-
+			
 			printf("Bytes send: %d\n", bytesSend);
 		}
 
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
 	int error = 0;
 	int i = 0;
 #else
-	pid_t procId;
+	pid_t procId = NULL;
 #endif
 
 
@@ -133,12 +133,12 @@ int main(int argc, char* argv[])
 		}
 
 #ifdef THREAD
-
+		
 		for (i = 0; i < MAX_THREAD_COUNT; i++)
 		if ((threads[i] == NULL) || (pthread_kill(threads[i], 0) != ESRCH))
 			break;
 
-		if (i >= MAX_THREAD_COUNT)
+		if(i >= MAX_THREAD_COUNT)
 		{
 			printf("Error : There's no free threads.\n");
 			continue;
@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
 		}
 
 #else
-		switch (procId = fork())
+		switch(procId = fork()) 
 		{
 		case -1:
 			printf("Error : Process create failed.\n");
@@ -161,9 +161,11 @@ int main(int argc, char* argv[])
 			sendFile((void*)clientId);
 			return 0;
 		default:
+		  //wait();
+		  close(clientId);
 			break;
 		}
-
+		
 #endif
 	}
 

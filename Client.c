@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
 	FILE *file;
 
 	memset(buffer, '0', sizeof(buffer));
-
+	
 	printf("Input file name: ");
 	scanf("%s", filename);
 
@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
 
 	/* Initialize sockaddr_in data structure */
 	serverSocket.sin_family = AF_INET;
-	serverSocket.sin_port = htons(PORT);
+	serverSocket.sin_port = htons(PORT); 
 	serverSocket.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost
 
 	/* Attempt a connection */
@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	printf("Filename send.\n");
 
 	/* Receive data */
-	if ((bytesReceived = read(socketId, buffer, BUF_SIZE)) > 0)
+	if((bytesReceived = read(socketId, buffer, BUF_SIZE)) > 0)
 	{
 		file = fopen(filename, "ab");
 		if (file == NULL)
@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 			close(socketId);
 			return 1;
 		}
-
+		
 		printf("Bytes received: %d\n", bytesReceived);
 		fwrite(buffer, 1, bytesReceived, file);
 	}
@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
 		close(socketId);
 		return 1;
 	}
-
+	
 	while ((bytesReceived = read(socketId, buffer, BUF_SIZE)) > 0)
 	{
 		printf("Bytes received: %d\n", bytesReceived);
@@ -80,7 +80,7 @@ int main(int argc, char* argv[])
 
 	if (bytesReceived < 0)
 		printf("Error : Reading file failed.\n");
-
+	
 	printf("File reading finished.\n");
 	fclose(file);
 	close(socketId);
