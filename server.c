@@ -13,63 +13,56 @@
 #define MAX_THREAD_COUNT 5
 //#define THREAD
 
-void* sendFile(void* param)
+void* send_file(void* param)
 {
 	char filename[MAX_FILENAME_SIZE];
 	unsigned char buffer[BUFFER_SIZE] = { 0 };
 	FILE *file;
-	int bytesRead = 0, bytesSend = 0;
-	int clientId = (int)param;
+	int bytes_read = 0, bytes_send = 0;
+	int client_id = (int)param;
 	
 
-	bytesRead = read(clientId, filename, sizeof(filename)-1);
-	if (bytesRead < 0)
-	{
+	bytes_read = read(client_id, filename, sizeof(filename)-1);
+	if (bytes_read < 0) {
 		printf("Error reading filename.\n");
-		close(clientId);
+		close(client_id);
 		return 1;
 	}
 
 	/* Open the file to transfer */
-	filename[bytesRead] = 0;
-	if (access(filename, F_OK) == -1) 
-	{
+	filename[bytes_read] = 0;
+	if (access(filename, F_OK) == -1) {
 		printf("File not found.\n");
-		close(clientId);
+		close(client_id);
 		return 1;
 	}
 
 	file = fopen(filename, "rb");
-	if (file == NULL)
-	{
+	if (file == NULL) {
 		printf("File open error.\n");
-		close(clientId);
+		close(client_id);
 		return 1;
 	}
 
 	/* Read file and send it */
-	for (;;)
-	{
-		bytesRead = fread(buffer, 1, BUFFER_SIZE, file);
+	for (;;) {
+		bytes_read = fread(buffer, 1, BUFFER_SIZE, file);
 
 		/* If read was success, send data. */
-		if (bytesRead > 0)
-		{
-			bytesSend = write(clientId, buffer, bytesRead);
+		if (bytes_read > 0) {
+			bytes_send = write(client_id, buffer, bytes_read);
 
-			if (bytesSend < bytesRead)
-			{
+			if (bytes_send < bytes_read) {
 				printf("Error sending file.\n");
 				fclose(file);
-				close(clientId);
+				close(client_id);
 				return 1;
 			}
 			
-			printf("Bytes send: %d\n", bytesSend);
+			printf("Bytes send: %d\n", bytes_send);
 		}
 
-		if (bytesRead < BUFFER_SIZE)
-		{
+		if (bytes_read < BUFFER_SIZE) {
 			if (feof(file))
 				printf("File send.\n");
 			if (ferror(file))
@@ -79,55 +72,56 @@ void* sendFile(void* param)
 	}
 
 	fclose(file);
-	close(clientId);
+	close(client_id);
 	return 0;
 }
 
 int main(int argc, char* argv[])
 {
-	int socketId = 0, clientId = 0;
-	struct sockaddr_in serverSocket;
+	int socket_id = 0, client_id = 0, yes = 1;
+	struct sockaddr_in server_socket;
 
 #ifdef THREAD
 	pthread_t threads[MAX_THREAD_COUNT] = { NULL };
 	int error = 0;
 	int i = 0;
 #else
-	pid_t procId = NULL;
+	pid_t proc_id = NULL;
 #endif
 
 
-	if ((socketId = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	{
+	if ((socket_id = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("Error : Could not create socket.\n");
 		return 1;
 	}
 
 	printf("Socket retrieve success\n");
 
-	memset(&serverSocket, '0', sizeof(serverSocket));
-	serverSocket.sin_family = AF_INET;
-	serverSocket.sin_addr.s_addr = INADDR_ANY;
-	serverSocket.sin_port = htons(PORT);
+	memset(&server_socket, '0', sizeof(server_socket));
+	server_socket.sin_family = AF_INET;
+	server_socket.sin_addr.s_addr = INADDR_ANY;
+	server_socket.sin_port = htons(PORT);
 
-	if ((bind(socketId, (struct sockaddr_in*)&serverSocket, sizeof(serverSocket))) < 0)
-	{
+	
+	if (setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
+    		printf("Error : Binding socket failed.\n");
+		return 1;
+	}
+
+	if ((bind(socket_id, (struct sockaddr_in*)&server_socket, sizeof(server_socket))) < 0) {
 		printf("Error : Binding socket failed.\n");
 		return 1;
 	}
 
-	if (listen(socketId, 10) == -1)
-	{
+	if (listen(socket_id, 10) == -1) {
 		printf("Error : Listening socket failed.\n");
 		return -1;
 	}
 
-	for (;;)
-	{
-		clientId = accept(socketId, (struct sockaddr*)NULL, NULL);
+	for (;;) {
+		client_id = accept(socket_id, (struct sockaddr*)NULL, NULL);
 
-		if (clientId < 0)
-		{
+		if (client_id < 0) {
 			printf("Error : Accept client failed.\n");
 			continue;
 		}
@@ -135,34 +129,30 @@ int main(int argc, char* argv[])
 #ifdef THREAD
 		
 		for (i = 0; i < MAX_THREAD_COUNT; i++)
-		if ((threads[i] == NULL) || (pthread_kill(threads[i], 0) != ESRCH))
-			break;
+			if ((threads[i] == NULL) || (pthread_kill(threads[i], 0) != ESRCH))
+				break;
 
-		if(i >= MAX_THREAD_COUNT)
-		{
+		if (i >= MAX_THREAD_COUNT) {
 			printf("Error : There's no free threads.\n");
 			continue;
 		}
 
-		error = pthread_create(&threads[i], NULL, sendFile, (void*)clientId);
-		if (error)
-		{
+		error = pthread_create(&threads[i], NULL, send_file, (void*)client_id);
+		if (error) {
 			printf("Error : Thread create failed.\n");
 			continue;
 		}
 
 #else
-		switch(procId = fork()) 
-		{
+		switch (proc_id = fork()) {
 		case -1:
 			printf("Error : Process create failed.\n");
 			break;
 		case 0:
-			sendFile((void*)clientId);
+			send_file((void*)client_id);
 			return 0;
 		default:
-		  //wait();
-		  close(clientId);
+		  	close(client_id);
 			break;
 		}
 		
@@ -171,3 +161,4 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
+

@@ -12,9 +12,9 @@
 int main(int argc, char* argv[])
 {
 	char filename[MAX_FILENAME_SIZE];
-	int bytesReceived = 0, socketId = 0;
+	int bytes_received = 0, socket_id = 0;
 	char buffer[BUF_SIZE];
-	struct sockaddr_in serverSocket;
+	struct sockaddr_in server_socket;
 	FILE *file;
 
 	memset(buffer, '0', sizeof(buffer));
@@ -23,66 +23,56 @@ int main(int argc, char* argv[])
 	scanf("%s", filename);
 
 	/* Create socket*/
-	if ((socketId = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-	{
+	if ((socket_id = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("Error : Could not create socket.\n");
 		return 1;
 	}
 
 	/* Initialize sockaddr_in data structure */
-	serverSocket.sin_family = AF_INET;
-	serverSocket.sin_port = htons(PORT); 
-	serverSocket.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost
+	server_socket.sin_family = AF_INET;
+	server_socket.sin_port = htons(PORT); 
+	server_socket.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost
 
 	/* Attempt a connection */
-	if (connect(socketId, (struct sockaddr_in*)&serverSocket, sizeof(serverSocket)) < 0)
-	{
+	if (connect(socket_id, (struct sockaddr_in*)&server_socket, sizeof(server_socket)) < 0) {
 		printf("Error : Connection failed.\n");
-		close(socketId);
+		close(socket_id);
 		return 1;
 	}
 
 	/* Send file name */
-	if (send(socketId, filename, strlen(filename), 0) < 0)
-	{
+	if (send(socket_id, filename, strlen(filename), 0) < 0) {
 		printf("Error : Sending file name failed.\n");
-		close(socketId);
+		close(socket_id);
 		return 1;
 	}
 	printf("Filename send.\n");
 
 	/* Receive data */
-	if((bytesReceived = read(socketId, buffer, BUF_SIZE)) > 0)
-	{
-		file = fopen(filename, "ab");
-		if (file == NULL)
-		{
+	if ((bytes_received = read(socket_id, buffer, BUF_SIZE)) > 0) {
+		file = fopen(filename, "wb");
+		if (file == NULL) {
 			printf("Error opening file.\n");
-			close(socketId);
+			close(socket_id);
 			return 1;
 		}
 		
-		printf("Bytes received: %d\n", bytesReceived);
-		fwrite(buffer, 1, bytesReceived, file);
-	}
-	else
-	{
+		fwrite(buffer, 1, bytes_received, file);
+	} else {
 		printf("Error : File not found.\n");
-		close(socketId);
+		close(socket_id);
 		return 1;
 	}
 	
-	while ((bytesReceived = read(socketId, buffer, BUF_SIZE)) > 0)
-	{
-		printf("Bytes received: %d\n", bytesReceived);
-		fwrite(buffer, 1, bytesReceived, file);
-	}
+	while ((bytes_received = read(socket_id, buffer, BUF_SIZE)) > 0)
+		fwrite(buffer, 1, bytes_received, file);
 
-	if (bytesReceived < 0)
+	if (bytes_received < 0)
 		printf("Error : Reading file failed.\n");
 	
 	printf("File reading finished.\n");
 	fclose(file);
-	close(socketId);
+	close(socket_id);
 	return 0;
 }
+
