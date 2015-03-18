@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 	server_socket.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost
 
 	/* Attempt a connection */
-	if (connect(socket_id, (struct sockaddr_in*)&server_socket, sizeof(server_socket)) < 0) {
+	if (connect(socket_id, (struct sockaddr*)&server_socket, sizeof(server_socket)) < 0) {
 		printf("Error : Connection failed.\n");
 		close(socket_id);
 		return 1;

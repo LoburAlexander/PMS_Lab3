@@ -26,7 +26,7 @@ void* send_file(void* param)
 	if (bytes_read < 0) {
 		printf("Error reading filename.\n");
 		close(client_id);
-		return 1;
+		return 0;
 	}
 
 	/* Open the file to transfer */
@@ -34,14 +34,14 @@ void* send_file(void* param)
 	if (access(filename, F_OK) == -1) {
 		printf("File not found.\n");
 		close(client_id);
-		return 1;
+		return 0;
 	}
 
 	file = fopen(filename, "rb");
 	if (file == NULL) {
 		printf("File open error.\n");
 		close(client_id);
-		return 1;
+		return 0;
 	}
 
 	/* Read file and send it */
@@ -56,7 +56,7 @@ void* send_file(void* param)
 				printf("Error sending file.\n");
 				fclose(file);
 				close(client_id);
-				return 1;
+				return 0;
 			}
 			
 			printf("Bytes send: %d\n", bytes_send);
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 	int error = 0;
 	int i = 0;
 #else
-	pid_t proc_id = NULL;
+	pid_t proc_id = 0;
 #endif
 
 
@@ -104,11 +104,11 @@ int main(int argc, char* argv[])
 
 	
 	if (setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-    		printf("Error : Binding socket failed.\n");
+    		printf("Error : Setting socket options failed.\n");
 		return 1;
 	}
 
-	if ((bind(socket_id, (struct sockaddr_in*)&server_socket, sizeof(server_socket))) < 0) {
+	if ((bind(socket_id, (struct sockaddr*)&server_socket, sizeof(server_socket))) < 0) {
 		printf("Error : Binding socket failed.\n");
 		return 1;
 	}
